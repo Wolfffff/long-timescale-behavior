@@ -1,0 +1,3 @@
+Camera:
+   # Use the RTX2080 for camera our first camera
+    GPUId: 0
