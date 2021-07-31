@@ -1,6 +1,6 @@
 [submodule "tracking/sleap/realtime-sleap/leap_rigs"]
 	path = tracking/sleap/realtime-sleap/leap_rigs
-	url = https://github.com/Wolfffff/leap_rigs
+	url = git@github.com:Wolfffff/leap_rigs.git
 [submodule "tracking/sleap/realtime-sleap/campy"]
 	path = tracking/sleap/realtime-sleap/campy
-	url = https://github.com/Wolfffff/campy
+	url = git@github.com:Wolfffff/campy.git
