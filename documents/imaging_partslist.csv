@@ -1,0 +1,7 @@
+﻿Name,Description,Item Number,Link,Notes
+,,,,
+IR light pad,880nm LED backlight,BL040401-880-IC,https://www.edmundoptics.com/p/100-x-100mm-880nm-led-backlight/21341/,"Depending on setup, this could be replaced with cheaper IR ring lights or strips with diffusion. "
+Camera,Camera,BFS-U3-32S4M-C,https://www.flir.com/products/blackfly-s-usb3/?model=BFS-U3-32S4M-C,
+Lens,35mm EFL C-Mount lens,MVL35M23,https://www.thorlabs.com/thorproduct.cfm?partnumber=MVL35M23,
+Filter,880nm bandpass filter,FB880-70,https://www.thorlabs.com/thorproduct.cfm?partnumber=FB880-70,
+Assorted hardware,"Filter mounts, camera rails, etc.",,https://www.thorlabs.com/,

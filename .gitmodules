@@ -4,3 +4,6 @@
 [submodule "tracking/sleap/realtime-sleap/campy"]
 	path = tracking/sleap/realtime-sleap/campy
 	url = git@github.com:Wolfffff/campy.git
+[submodule "analysis/utils/motionmapperpy"]
+	path = analysis/utils/motionmapperpy
+	url = https://github.com/bermanlabemory/motionmapperpy
