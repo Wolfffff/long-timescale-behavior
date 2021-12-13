@@ -2,6 +2,10 @@
 
 ## Imaging
 
+`ayroles-gpu` at `128.112.21.156`
+### Current Real-Time Cpmpression
+
+See [cvpy](cvpy) for our current recording code. It is a simple, modified version of [campy](https://github.com/ksseverson57/campy/).
 ### Motif
 
 Loopbio's [Motif](http://loopbio.com/recording/)
@@ -14,6 +18,6 @@ We're currently recording to Loopbio's [imgstore](https://github.com/loopbio/img
 
 ### labcams
 
-On easy and cheap way to record with realtime GPU compression is to use labcams from Joao Couto. This is significantly more CPU intensive than Motif but also free and open source.
+On easy and cheap way to record with real-ctime GPU compression is to use labcams from Joao Couto. This is significantly more CPU intensive than Motif but also free and open source.
 
 ## SLEAP
