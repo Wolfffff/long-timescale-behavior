@@ -4,7 +4,7 @@ import time
 import sleap
 
 filenames = glob.glob(
-    "/Users/wolf/git/long-timescale-behavior/tracking/sleap/20210728/predictions/*.slp"
+    "*.slp"
 )
 filenames.sort(key=lambda f: int(re.sub("\D", "", f)))
 print(filenames)

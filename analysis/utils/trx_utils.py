@@ -147,7 +147,7 @@ def smooth_median(x, window=5, axis=0, inplace=False):
         x = unflatten_features(x, initial_shape, axis=axis)
         return x
     
-    y = pd.DataFrame(x.copy()).rolling(window, win_type=None, center=True).median().to_numpy()
+    y = scipy.signal.medfilt(x.copy(), window)
     y = y.reshape(x.shape)
     mask = np.isnan(y) & (~np.isnan(x))
     y[mask] = x[mask]
@@ -262,11 +262,11 @@ def instance_node_velocities(fly_node_locations,start_frame,end_frame):
     if len(fly_node_locations.shape) == 4:
         for fly_idx in range(fly_node_locations.shape[3]):
             fly_node_velocities = np.zeros((frame_count,fly_node_locations.shape[1],fly_node_locations.shape[3] ))
-            for n in range(0, fly_node_locations.shape[1]):
+            for n in tqdm(range(0, fly_node_locations.shape[1])):
                 fly_node_velocities[:, n,fly_idx] = smooth_diff(fly_node_locations[start_frame:end_frame, n, :,fly_idx])
     else:
         fly_node_velocities = np.zeros((frame_count,fly_node_locations.shape[1]))
-        for n in range(0, fly_node_locations.shape[1] - 1):
+        for n in tqdm(range(0, fly_node_locations.shape[1] - 1)):
             fly_node_velocities[:, n] = smooth_diff(fly_node_locations[start_frame:end_frame, n, :])
 
     return fly_node_velocities
@@ -274,7 +274,7 @@ def instance_node_velocities(fly_node_locations,start_frame,end_frame):
 
 def smooth_diff(node_loc, win=25, poly=3):
     """
-    node_loc is a [frames, 2] array
+    node_loc is a [frames, 2] arrayF
     
     win defines the window to smooth over
     
@@ -331,6 +331,7 @@ def fill_missing_np(Y, kind="linear"):
 
 def hist_sort(locations,ctr_idx, xbins=2, ybins=2, xmin=0, xmax=1536, ymin=0, ymax=1536):
     assignments = []
+    freq = []
     for track_num in range(locations.shape[3]):
         h, xedges, yedges = np.histogram2d(
             locations[:, ctr_idx, 0, track_num],
@@ -340,7 +341,56 @@ def hist_sort(locations,ctr_idx, xbins=2, ybins=2, xmin=0, xmax=1536, ymin=0, ym
         )
         # Probably not the correct way to flip this around to get rows and columns correct but it'll do!
         assignment = h.argmax()
+        freq.append(h)
         assignments.append(assignment)
     assignment_indices = np.argsort(assignments)
     locations = locations[:, :, :, assignment_indices]
-    return assignment_indices, locations
+    return assignment_indices, locations, freq
+
+import scipy.stats
+def hist_sort_rowwise(locations,ctr_idx, xbins=2, ybins=2, xmin=0, xmax=1536, ymin=0, ymax=1536):
+    fourbyfour_interior_gridmap = {5:0,6:1,9:2,10:3}
+    output = np.zeros_like(locations)
+    for track_num in range(locations.shape[3]):
+        h, xedges, yedges, binnumber = scipy.stats.binned_statistic_2d(
+            locations[:, ctr_idx, 0, track_num],
+            locations[:,ctr_idx, 1, track_num],
+            None,
+            'count',
+            range=[[xmin, xmax], [ymin, ymax]],
+            bins=[xbins, ybins],
+        )
+        assignments = np.vectorize(fourbyfour_interior_gridmap.get)(binnumber)
+        frames,nodes,coords,assignments = np.arange(locations.shape[0]), slice(None),slice(None),assignments
+        output[frames,nodes,coords,assignments] = locations[frames,nodes,coords,assignments]
+    return output
+
+def acorr(x, normed=True, maxlags=10):
+    return xcorr(x,x, normed, maxlags)
+
+def xcorr(x, y, normed=True, maxlags=10):
+
+        Nx = len(x)
+        if Nx != len(y):
+            raise ValueError('x and y must be equal length')
+
+        correls = np.correlate(x, y, mode="full")
+
+        if normed:
+            correls /= np.sqrt(np.dot(x, x) * np.dot(y, y))
+
+        if maxlags is None:
+            maxlags = Nx - 1
+
+        if maxlags >= Nx or maxlags < 1:
+            raise ValueError('maxlags must be None or strictly '
+                             'positive < %d' % Nx)
+        lags = np.arange(-maxlags, maxlags + 1)
+        correls = correls[Nx - 1 - maxlags:Nx + maxlags]
+        return lags, correls
+
+def isintimeperiod(startTime, endTime, nowTime):
+    if startTime < endTime:
+        return nowTime >= startTime and nowTime <= endTime
+    else:
+        return nowTime >= startTime or nowTime <= endTime
