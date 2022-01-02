@@ -3,6 +3,7 @@ import pandas as pd
 import scipy.ndimage
 from tqdm import tqdm
 from scipy.signal import savgol_filter
+import matplotlib.colors as colors
 
 
 def fill_gaps(x, max_len):
@@ -394,3 +395,69 @@ def isintimeperiod(startTime, endTime, nowTime):
         return nowTime >= startTime and nowTime <= endTime
     else:
         return nowTime >= startTime or nowTime <= endTime
+
+def alpha_cmap(cmap):
+    my_cmap = cmap(np.arange(cmap.N))
+    # Set a square root alpha.
+    x = np.linspace(0, 1, cmap.N)
+    my_cmap[:,-1] = x ** (0.5)
+    my_cmap = colors.ListedColormap(my_cmap)
+    return my_cmap
+
+import cv2
+def blob_detector(video_path):
+
+    cap = cv2.VideoCapture(video_path)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frames = []
+    for f in np.random.choice(np.arange(frame_count),20,replace=False):
+        cap.set(cv2.CAP_PROP_POS_FRAMES,f-1)
+        ret, frame = cap.read()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frames.append(gray)
+    median_frame = np.median(frames, axis=0).astype(dtype=np.uint8) 
+    th, im_th = cv2.threshold(median_frame, 100, 255, cv2.THRESH_BINARY)
+    
+    # # Copy the thresholded image.
+    # im_floodfill = im_th.copy()
+    # h, w = im_th.shape[:2]
+    # mask = np.zeros((h+2, w+2), np.uint8)
+    # cv2.floodFill(im_floodfill, mask, (0,0), 255);
+    # im_floodfill_inv = cv2.bitwise_not(im_floodfill)
+    # im_out = im_th | im_floodfill_inv
+
+    params = cv2.SimpleBlobDetector_Params()
+
+    # Change thresholds
+    # params.minThreshold = 10
+    # params.maxThreshold = 200
+
+
+    # Filter by Area.
+    params.filterByArea = False
+    params.minArea = 10
+
+    # Filter by Circularity
+    params.filterByCircularity = True
+    params.minCircularity = 0.5
+
+    # Filter by Convexity
+    params.filterByConvexity = False
+    params.minConvexity = 0.87
+
+    # Filter by Inertia
+    params.filterByInertia = False
+    params.minInertiaRatio = 0.01
+
+    
+    # Create a detector with the parameters
+    detector = cv2.SimpleBlobDetector_create(params)
+        
+    # Detect blobs
+    keypoints = detector.detect(255-im_th)
+    
+    # Draw blobs on our image as red circles
+    blank = np.zeros((1, 1))
+    blobs = cv2.drawKeypoints(im_th, keypoints, blank, (0, 0, 255),
+                            cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    return keypoints, blobs, median_frame
