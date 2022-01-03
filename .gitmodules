@@ -7,3 +7,6 @@
 [submodule "analysis/utils/motionmapperpy"]
 	path = analysis/utils/motionmapperpy
 	url = https://github.com/bermanlabemory/motionmapperpy
+[submodule "analysis/utils/trajectorytools"]
+	path = analysis/utils/trajectorytools
+	url = https://github.com/fjhheras/trajectorytools

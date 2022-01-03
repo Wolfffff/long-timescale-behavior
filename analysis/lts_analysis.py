@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Caffeine base analysis
+# # lts analysis
 
 # %%
 import logging
@@ -39,15 +39,12 @@ logger = logging.getLogger("analysis_logger")
 px_mm = 28.25  # mm/px
 
 path_name = "/Genomics/ayroleslab2/scott/long-timescale-behavior/data/tracks"
-
 exp1_cam1_h5s = [
     "exp2_cam1_0through23.tracked.analysis.h5",
     "exp2_cam1_24through47.tracked.analysis.h5",
     "exp2_cam1_48through71.tracked.analysis.h5",
     "exp2_cam1_72through95.tracked.analysis.h5",
     "exp2_cam1_96through119.tracked.analysis.h5"
-    # "exp2_cam1_120through143.tracked.analysis.h5",
-    # "exp2_cam1_144through167.tracked.analysis.h5",
 ]
 exp1_cam1_h5s = [path_name + "/" + filename for filename in exp1_cam1_h5s]
 
@@ -57,8 +54,6 @@ exp1_cam2_h5s = [
     "exp2_cam2_48through71.tracked.analysis.h5",
     "exp2_cam2_72through95.tracked.analysis.h5",
     "exp2_cam2_96through119.tracked.analysis.h5"
-    # "exp2_cam2_120through143.tracked.analysis.h5",
-    # "exp2_cam2_144through167.tracked.analysis.h5",
 ]
 exp1_cam2_h5s = [path_name + "/" + filename for filename in exp1_cam2_h5s]
 
@@ -122,15 +117,12 @@ for key in list(expmt_dict.keys()):
     expmt_dict[key]["assignments"] = assignment_indices
     expmt_dict[key]["freq"] = freq
 
-HEAD_INDEX = node_names.index("head")
-THORAX_INDEX = node_names.index("thorax")
-ABDO_INDEX = node_names.index("abdomen")
 # %%
 for key in expmt_dict:
     expmt = expmt_dict[key]
     fly_node_locations_all = tracks_dict[key]
     fly_idx = 0
-    indices = np.array([THORAX_INDEX])
+    indices = np.array([node_names.index("thorax")])
     fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
     fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
     fly_node_velocities = trx_utils.instance_node_velocities(
@@ -149,32 +141,32 @@ for key in expmt_dict:
     velocities_dict[key] = fly_node_velocities
 
 # %%
-import json
 with open('data.json', 'w') as f:
     json.dump(expmt_dict, f,default=str)
 
-# with open('data.json', 'r') as f:
-#     expmt_dict = json.load(f)
-
 # %%
-# np.save(data_dir +"/fly_node_locations_mediansmoothed.npy",fly_node_locations)
-# np.save(data_dir +"/fly_node_velocities.npy",fly_node_velocities)
-for key in expmt_dict:
+HEAD_INDEX = node_names.index("head")
+THORAX_INDEX = node_names.index("thorax")
+ABDO_INDEX = node_names.index("abdomen")
+
+for key in tqdm(expmt_dict):
     data_file = h5py.File(data_dir + f"/{key}_fly_node_locations.h5", 'w')
     data_file.create_dataset('tracks', data=tracks_dict[key], compression='lzf')#'gzip', compression_opts=9)
     data_file.close()
 
-    data_file = h5py.File(data_dir + f"/{key}_fly_node_locations.h5", 'w')
+    data_file = h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", 'w')
     data_file.create_dataset('velocities', data=velocities_dict[key], compression='lzf')#'gzip', compression_opts=9)
     data_file.close()
-
+# %%
+import pickle
+pickle.dump(node_names, open( "node_names.p", "wb" ) )
 tracks_dict = {}
 velocities_dict = {}
-for key in expmt_dict:
+for key in tqdm(expmt_dict):
     with h5py.File(data_dir + f"/{key}_fly_node_locations.h5", "r") as f:
         tracks_dict[key] = f["tracks"][:]
     with h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", "r") as f:
-        velocities_dict[key] = f["tracks"][:]
+        velocities_dict[key] = f["velocities"][:]
 
 
 # %%
@@ -310,26 +302,35 @@ plt.show()
 # %%
 
 from cv2 import cv2
-thorax_loc = fly_node_locations[0:(48*60*60*100),node_names.index("thorax"),:,:]
+thorax_loc = fly_node_locations[0:(24*60*60*100),node_names.index("thorax"),:,:]
 cap = cv2.VideoCapture('/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv')
-
-i=3
-data = thorax_loc[:,:,i]
+keypoints, blobs, median_frame = trx_utils.blob_detector("/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv")
+arr_srt = np.array([kp.pt for kp in keypoints]).T[np.newaxis,np.newaxis,:,:]
+arr_srt[:,:,1,:] = -arr_srt[:,:,1,:]
+assignment_indices, locations, freq = trx_utils.hist_sort(arr_srt,ctr_idx=0,ymin=-1536, ymax=0)
+keypoints2 = [keypoints[i] for i in assignment_indices]
+i=0
+data = thorax_loc[:,:,1]
 x = data[:,0]
 y = data[:,1]
 plt.hist2d(x, y, norm=mpl.colors.LogNorm())
 plt.axis('equal')
 plt.title("Simple 2D Histogram")
 plt.show()
-mid_pt = ((np.max(x) + np.min(x))/2, (np.max(y) + np.min(y))/2)
+# mid_pt = ((np.max(x) + np.min(x))/2, (np.max(y) + np.min(y))/2)
+mid_pt = np.array(keypoints2[i].pt)
 relative_pos = data-mid_pt
 dist = np.linalg.norm(relative_pos,axis=1)
+thresh = (keypoints[i].size/2) - (px_mm*1)
+logger.info(f'Threshold: {thresh}')
 
-data_wall = thorax_loc[dist > 320,:,i]
-cap.set(cv2.CAP_PROP_POS_FRAMES,np.where(dist>320)[0][0])
+
+data_wall = thorax_loc[dist > thresh,:,i]
+cap.set(cv2.CAP_PROP_POS_FRAMES,np.where(dist>thresh)[0][0])
 x_wall = data_wall[:,0]
 y_wall = data_wall[:,1]
 subset = np.random.choice(np.arange(data_wall.shape[0]),1000,replace=False)
+logger.info(f'FRAC ON EDGE: {np.where(dist > thresh)[0].shape[0]/dist.shape[0] * 100}%')
 # plt.imshow(frame, cmap='gray', vmin=0, vmax=255)
 # plt.hist2d(x[subset],y[subset], bins=24,norm=LogNorm(), cmap='plasma')
 # hmax = sns.kdeplot(x_wall[subset],y_wall[subset],cmap = trx_utils.alpha_cmap(plt.cm.viridis),
@@ -347,90 +348,23 @@ subset = np.random.choice(np.arange(data_wall.shape[0]),1000,replace=False)
 # plt.show()
 # %%
 n = 0
-for i in np.argsort(-dist)[::10000]:
+step = 1000
+for i in np.argsort(dist[dist > thresh])[::step]:
     cap.set(cv2.CAP_PROP_POS_FRAMES,i)
     res, frame = cap.read()
     frame = frame[:, :, 0]
     print(n)
     print(i)
     print(dist[i])
-    n += 10000
+    n += step
     plt.imshow(frame, cmap='gray', vmin=0, vmax=255)
     plt.show()
 
 # %%
-cap = cv2.VideoCapture('/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv')
-res, frame = cap.read()
-im = frame[:, :, 0]
-plt.imshow(im)
-plt.show()
-th, im_th = cv2.threshold(im, 100, 255, cv2.THRESH_BINARY)
-# Copy the thresholded image.
-
-im_floodfill = im_th.copy()
-h, w = im_th.shape[:2]
-mask = np.zeros((h+2, w+2), np.uint8)
-cv2.floodFill(im_floodfill, mask, (0,0), 255);
-im_floodfill_inv = cv2.bitwise_not(im_floodfill)
-im_out = im_th | im_floodfill_inv
-
-plt.hist(im_th.flatten())
-plt.show()
-plt.imshow(im_out, cmap='gray', vmin=0, vmax=255)
-plt.show()
-
-image = im_out
-
-params = cv2.SimpleBlobDetector_Params()
-
-# Set Area filtering parameters
-params.filterByArea = False
-params.minArea = 250000
- 
-# Set Circularity filtering parameters
-params.filterByCircularity = False
-params.minCircularity = 0.8
- 
-# Set Convexity filtering parameters
-params.filterByConvexity = False
-params.minConvexity = 0.2
-     
-# Set inertia filtering parameters
-params.filterByInertia = False
-params.minInertiaRatio = 0.01
- 
-# Create a detector with the parameters
-detector = cv2.SimpleBlobDetector_create(params)
-     
-# Detect blobs
-keypoints = detector.detect(255-image)
- 
-# Draw blobs on our image as red circles
-blank = np.zeros((1, 1))
-blobs = cv2.drawKeypoints(image, keypoints, blank, (0, 0, 255),
-                          cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
- 
-# number_of_blobs = len(keypoints)
-text = "Number of Circular Blobs: " + str(len(keypoints))
-cv2.putText(blobs, text, (20, 550),
-            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-cv2.imwrite("./blobs.png", blobs)
-plt.imshow(blobs)#,# cmap='gray', vmin=0, vmax=255)
-# Show blobs
-# %%
-dir(keypoints[0])
-keypoints[0]
-
-# %%
-import utils.trx_utils as trx_utils
-
-# %%
 # import utils.trx_utils as trx_utils
 import importlib
-import utils.trx_utils
+import utils.trx_utils as trx_utils
 import cv2
-importlib.reload(utils.trx_utils)
-a,b,c = utils.trx_utils.blob_detector("/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv")
-cv2.imwrite("./blobs.png", b)
-cv2.imwrite("./blobs_c.png", c)
+importlib.reload(trx_utils)
+# %%
 # %%
