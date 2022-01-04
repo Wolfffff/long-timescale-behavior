@@ -1,3 +1,4 @@
+# %%
 # %% [markdown]
 # # lts analysis
 
@@ -35,131 +36,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("analysis_logger")
 
-
-px_mm = 28.25  # mm/px
-
-path_name = "/Genomics/ayroleslab2/scott/long-timescale-behavior/data/tracks"
-exp1_cam1_h5s = [
-    "exp2_cam1_0through23.tracked.analysis.h5",
-    "exp2_cam1_24through47.tracked.analysis.h5",
-    "exp2_cam1_48through71.tracked.analysis.h5",
-    "exp2_cam1_72through95.tracked.analysis.h5",
-    "exp2_cam1_96through119.tracked.analysis.h5"
-]
-exp1_cam1_h5s = [path_name + "/" + filename for filename in exp1_cam1_h5s]
-
-exp1_cam2_h5s = [
-    "exp2_cam2_0through23.tracked.analysis.h5",
-    "exp2_cam2_24through47.tracked.analysis.h5",
-    "exp2_cam2_48through71.tracked.analysis.h5",
-    "exp2_cam2_72through95.tracked.analysis.h5",
-    "exp2_cam2_96through119.tracked.analysis.h5"
-]
-exp1_cam2_h5s = [path_name + "/" + filename for filename in exp1_cam2_h5s]
-
-expmt_dict = {
-    "exp1_cam1": {
-        "h5s": exp1_cam1_h5s,
-        "video": "exp1_cam1.mkv",
-        "frame_rate": 100,
-        "start_time": datetime.strptime("0-22:33:00", FMT),
-        "camera": "1",
-        "experiment": "1"
-    },
-        "exp1_cam2": {
-        "h5s": exp1_cam2_h5s,
-        "frame_rate": 100,
-        "start_time": datetime.strptime("0-22:33:00", FMT),
-        "camera": "2",
-        "experiment": "1"
-    }
-}
-
-tracks_dict = {}
-velocities_dict = {}
 # %%
-for key in list(expmt_dict.keys()):
-    expmt = expmt_dict[key]
-    logger.info(key)
-    base_idx = 0
-    with h5py.File(expmt["h5s"][0], "r") as f:
-        dset_names = list(f.keys())
-        node_names = [n.decode() for n in f["node_names"][:]]
-        locations = f["tracks"][:].T
-
-        locations[:, :, 1, :] = -locations[:, :, 1, :]
-        assignment_indices, locations, freq = trx_utils.hist_sort(
-            locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
-        )
-        locations[:, :, 1, :] = -locations[:, :, 1, :]
-
-    for filename in tqdm(expmt["h5s"][1:]):
-        with h5py.File(filename, "r") as f:
-            temp_locations = f["tracks"][:].T
-            temp_locations[:, :, 1, :] = -temp_locations[:, :, 1, :]
-            temp_assignment_indices, temp_locations, freq = trx_utils.hist_sort(
-                temp_locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
-            )
-            temp_locations[:, :, 1, :] = -temp_locations[:, :, 1, :]
-            print(filename)
-            print(freq)
-
-            locations = np.concatenate((locations, temp_locations), axis=0)
-    # Final assignment as a safety
-    locations[:, :, 1, :] = -locations[:, :, 1, :]
-    assignment_indices, locations, freq = trx_utils.hist_sort(
-        locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
-    )
-    locations[:, :, 1, :] = -locations[:, :, 1, :]
-    locations = trx_utils.fill_missing_np(locations)
-    # expmt_dict[key]["tracks"] = locations
-    tracks_dict[key] = locations
-    expmt_dict[key]["assignments"] = assignment_indices
-    expmt_dict[key]["freq"] = freq
-
-# %%
-for key in expmt_dict:
-    expmt = expmt_dict[key]
-    fly_node_locations_all = tracks_dict[key]
-    fly_idx = 0
-    indices = np.array([node_names.index("thorax")])
-    fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
-    fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
-    fly_node_velocities = trx_utils.instance_node_velocities(
-        fly_node_locations, 0, fly_node_locations.shape[0]
-    ).astype(np.float32) * (1/px_mm) * expmt["frame_rate"]
-
-    for fly_idx in tqdm(range(1, fly_node_locations_all.shape[3])):
-        current_fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
-        current_fly_node_locations = trx_utils.smooth_median(current_fly_node_locations, window=5)
-        current_fly_node_velocities = trx_utils.instance_node_velocities(
-            current_fly_node_locations, 0, current_fly_node_locations.shape[0]
-        ).astype(np.float32) * (1/px_mm) * expmt["frame_rate"]
-        fly_node_velocities = np.dstack((fly_node_velocities, current_fly_node_velocities))
-        fly_node_locations = np.concatenate((fly_node_locations, current_fly_node_locations), axis=3)
-
-    velocities_dict[key] = fly_node_velocities
-
-# %%
-with open('data.json', 'w') as f:
-    json.dump(expmt_dict, f,default=str)
-
-# %%
-HEAD_INDEX = node_names.index("head")
-THORAX_INDEX = node_names.index("thorax")
-ABDO_INDEX = node_names.index("abdomen")
-
-for key in tqdm(expmt_dict):
-    data_file = h5py.File(data_dir + f"/{key}_fly_node_locations.h5", 'w')
-    data_file.create_dataset('tracks', data=tracks_dict[key], compression='lzf')#'gzip', compression_opts=9)
-    data_file.close()
-
-    data_file = h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", 'w')
-    data_file.create_dataset('velocities', data=velocities_dict[key], compression='lzf')#'gzip', compression_opts=9)
-    data_file.close()
-# %%
-import pickle
-pickle.dump(node_names, open( "node_names.p", "wb" ) )
+expmt_dict = json.load(open('expmt_dict.json','r'))
+node_names =expmt_dict["exp1_cam1"]['node_names']
+px_mm = expmt_dict["exp1_cam1"]['px_mm']
 tracks_dict = {}
 velocities_dict = {}
 for key in tqdm(expmt_dict):
@@ -167,7 +47,7 @@ for key in tqdm(expmt_dict):
         tracks_dict[key] = f["tracks"][:]
     with h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", "r") as f:
         velocities_dict[key] = f["velocities"][:]
-
+    
 
 # %%
 fly_node_locations = np.concatenate([tracks_dict[key] for key in expmt_dict], axis=3)
@@ -181,6 +61,95 @@ fly_node_velocities = np.concatenate([velocities_dict[key] for key in expmt_dict
 # %%
 import scipy.stats
 from datetime import datetime
+ToD = {}
+for expmt in expmt_dict:
+    expmt_data = expmt_dict[expmt]
+    FMT = '%w-%H:%M:%S'
+    start_day = datetime.strptime('1900-01-02 00:00:00', '%Y-%m-%d %H:%M:%S') # for example
+    time = expmt_data['start_time']#,'%Y-%m-%d %H:%M:%S')
+    expmt_data['start_time'] = time
+    difference = start_day - time 
+    frame_rate = expmt_data['frame_rate']
+    shift = int(difference.seconds*frame_rate)
+    frame_idx = (np.arange(tracks_dict[expmt].shape[0]) - shift)
+    expmt_tod = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
+    ToD[expmt] = expmt_tod
+
+
+plt.rcParams['patch.linewidth'] = 0
+plt.rcParams['patch.edgecolor'] = 'none'
+# fig, ax = plt.subplots(figsize=(9, 3), dpi=300)
+# data[data < 0.1] = 0
+
+# %%
+for expmt in expmt_dict:
+    # data[data < .1] = 0
+
+    vels = velocities_dict[expmt]
+    for fly_idx in range(vels.shape[2]):
+        vels[:,node_names.index("thorax"),:] = vels[:,node_names.index("thorax"),:] / np.nansum(vels[:,node_names.index("thorax"),:])
+    for fly_idx in range(vels.shape[2]):
+        segments = 2*24
+        binned = scipy.stats.binned_statistic(ToD[expmt], vels[:,node_names.index("thorax"),fly_idx],statistic='mean', bins=segments, range=None)
+        custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+        sns.set_theme(style="ticks", rc=custom_params)
+        fig, ax = plt.subplots()
+        sns.barplot(ax=ax,x=np.arange(segments),y=binned.statistic,color=palettable.wesanderson.GrandBudapest4_5.mpl_colors[0])#,alpha=1,width=1)
+        plt.xticks([i*(segments//24) for i in [0, 8, 20,24]], [0, 8, 20,24])
+        plt.tight_layout()
+        # ax.set_yscale('log')
+        def change_width(ax, new_value) :
+            for patch in ax.patches :
+                current_width = patch.get_width()
+                diff = current_width - new_value
+
+                # we change the bar width
+                patch.set_width(new_value)
+
+                # we recenter the bar
+                patch.set_x(patch.get_x() + diff * .5)
+        plt.xlabel("Hour of the day")
+        plt.ylabel("Mean thorax velocity (mm/s)")
+        plt.title("Mean thorax velocity by hour of the day")
+        change_width(ax, .95)
+        plt.show()
+# %%
+# flattened
+for expmt in expmt_dict:
+    logger.info(expmt)
+    vels = velocities_dict[expmt]
+    ToD_mat = np.concatenate([np.repeat(ToD[expmt][:,np.newaxis],4,axis=1)], axis=1)
+    for fly_idx in range(vels.shape[2]):
+            vels[:,node_names.index("thorax"),:] = vels[:,node_names.index("thorax"),:] / np.nansum(vels[:,node_names.index("thorax"),:])
+
+    segments = 2*24
+    binned = scipy.stats.binned_statistic(ToD_mat.flatten(), vels[:,node_names.index("thorax"),:].flatten(),statistic='mean', bins=segments, range=None)
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+    sns.set_theme(style="ticks", rc=custom_params)
+    fig, ax = plt.subplots()
+    sns.barplot(ax=ax,x=np.arange(segments),y=binned.statistic,color=palettable.wesanderson.GrandBudapest4_5.mpl_colors[0])#,alpha=1,width=1)
+    plt.xticks([i*(segments//24) for i in [0, 8, 20,24]], [0, 8, 20,24])
+    plt.tight_layout()
+    # ax.set_yscale('log')
+    def change_width(ax, new_value) :
+        for patch in ax.patches :
+            current_width = patch.get_width()
+            diff = current_width - new_value
+
+            # we change the bar width
+            patch.set_width(new_value)
+
+            # we recenter the bar
+            patch.set_x(patch.get_x() + diff * .5)
+    plt.xlabel("Hour of the day")
+    plt.ylabel("Mean thorax velocity (mm/s)")
+    plt.title("Mean thorax velocity by hour of the day")
+    change_width(ax, .95)
+    plt.show()
+
+# %%
+import scipy.stats
+from datetime import datetime
 frame_rate = expmt_dict[list(expmt_dict.keys())[0]]['frame_rate']
 FMT = '%w-%H:%M:%S'
 
@@ -192,25 +161,20 @@ shift = int(difference.seconds*frame_rate)
 plt.rcParams["figure.figsize"] = (9,3)
 start_frame = 0
 end_frame = int(24*60*60*frame_rate)
-data = fly_node_velocities[:,node_names.index("thorax"),:].copy()
+data = fly_node_velocities[:,node_names.index("thorax"),0:2].copy()
 frame_idx = (np.arange(data.shape[0]) - shift)
 ToD = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
-
-# ToD = ToD[int(6*60*60*frame_rate):]
-# data = data[int(6*60*60*frame_rate):,:]
-
-plt.rcParams['patch.linewidth'] = 0
-plt.rcParams['patch.edgecolor'] = 'none'
-# fig, ax = plt.subplots(figsize=(9, 3), dpi=300)
-data[data < 0.1] = 0
+plt.rcParams["figure.figsize"] = (9,3)
+plt.rcParams['figure.dpi'] = 300
+# data[data < .1] = 0
 for fly_idx in range(data.shape[1]):
-    binned = scipy.stats.binned_statistic(ToD, data[:,fly_idx],statistic='sum', bins=72, range=None)
+    data[:,fly_idx] = data[:,fly_idx] / np.nansum(data[:,fly_idx])
 
-    plt.bar(x=np.arange(72),height=binned.statistic,alpha=0.2,width=1)
-    plt.xticks(rotation=60)
-    # plt.axvspan(xmin=7.5,xmax=19.5,alpha=0.2)
-    plt.tight_layout()
-    plt.show()
+binned = scipy.stats.binned_statistic(np.repeat(ToD,data.shape[1]), data.flatten(),statistic='mean',
+ bins=24*3, range=None)
+
+
+
 # %%
 import scipy.stats
 from datetime import datetime
@@ -227,144 +191,107 @@ start_frame = 0
 end_frame = int(24*60*60*frame_rate)
 data = fly_node_velocities[:,node_names.index("thorax"),:].copy()
 frame_idx = (np.arange(data.shape[0]) - shift)
-ToD = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
-
-data[data < 0.5] = 0
-for fly_idx in range(data.shape[1]):
-    data[:,fly_idx] = data[:,fly_idx] / np.nansum(data[:,fly_idx])
+ToD = frame_idx / (1*60*60*frame_rate)
+plt.rcParams["figure.figsize"] = (9,3)
+plt.rcParams['figure.dpi'] = 300
 
 binned = scipy.stats.binned_statistic(np.repeat(ToD,data.shape[1]), data.flatten(),statistic='mean',
- bins=72, range=None)
+ bins=10000*5*24, range=None)
+# %%
+from __future__ import division
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal
+from scipy.fft import fftshift
+# data = fly_node_velocities[1:10000000,node_names.index("thorax"),0]
 
-plt.bar(x=np.arange(72),height=binned.statistic,alpha=1,width=1)
-# plt.yscale('log')
-plt.xticks(rotation=60)
-plt.axvspan(xmin=7.5,xmax=19.5,alpha=0.2)
-plt.tight_layout()
+f, t, Sxx = signal.spectrogram(binned.statistic,fs=1000,window=('tukey', 10))#,nperseg=4,noverlap=3,nfft=128,detrend='constant',return_onesided=True, scaling='density')
+plt.pcolormesh(t, fftshift(f), fftshift(Sxx, axes=0), shading='gouraud')
+plt.ylabel('Frequency [Hz]')
+plt.xlabel('Time [sec]')
+# plt.xlim(0,100)
 plt.show()
 # %%
-data[data < 0.1] = 0
+x = binned.statistic
+Xf_mag = np.abs(np.fft.fft(x))
+freqs = np.fft.fftfreq(len(Xf_mag), d=1.0/24)
+import matplotlib.pyplot as plt
+plt.plot(freqs, Xf_mag)
+plt.show()
+# %%
+# data[data < 0.1] = 0
 for fly_idx in range(data.shape[1]):
-    binned = scipy.stats.binned_statistic(ToD, data[:,fly_idx],statistic='sum', bins=72, range=None)
+    data = fly_node_velocities[:,node_names.index("thorax"),:].copy()
+    frame_idx = (np.arange(data.shape[0]) - shift)
+    ToD = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
 
-    plt.bar(x=np.arange(72),height=binned.statistic,alpha=0.2,width=1)
+    binned = scipy.stats.binned_statistic(ToD, data[:,fly_idx],statistic='sum', bins=48, range=None)
+    sns.barplot(x=np.arange(48),y=binned.statistic)#,alpha=0.2,width=1)
     plt.xticks(rotation=60)
     # plt.axvspan(xmin=7.5,xmax=19.5,alpha=0.2)
     plt.tight_layout()
     plt.show()
 
 # %%
-from cv2 import cv2
-thorax_loc = fly_node_locations[0:(48*60*60*100),node_names.index("thorax"),:,:]
-cap = cv2.VideoCapture('/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv')
-# for i in range(4):
-i=0
-data = thorax_loc[:,:,i]
-x = data[:,0]
-y = data[:,1]
-plt.hist2d(x, y, norm=mpl.colors.LogNorm())
-plt.axis('equal')
-plt.title("Simple 2D Histogram")
-plt.show()
-mid_pt = ((np.max(x) + np.min(x))/2, (np.max(y) + np.min(y))/2)
-relative_pos = data-mid_pt
-dist = np.linalg.norm(relative_pos,axis=1)
-# plt.hist(dist)
-plt.plot(x[dist < 310], y[dist < 310],alpha=0.2)
-cap.set(cv2.CAP_PROP_POS_FRAMES,np.where(dist>320)[0][0])
-res, frame = cap.read()
-frame = frame[:, :, 0]
-plt.imshow(frame)
-plt.show()
-logger.info(f'FRAC ON EDGE: {x[dist > 320].shape[0]/x.shape[0] * 100}%')
+for i in expmt_dict:
+    data = thorax_loc[:,:,i]
+    x = data[:,0]
+    y = data[:,1]
+    plt.hist2d(x, y, norm=mpl.colors.LogNorm())
+    plt.axis('equal')
+    plt.title("Simple 2D Histogram")
+    plt.show()
+    # mid_pt = ((np.max(x) + np.min(x))/2, (np.max(y) + np.min(y))/2)
+    mid_pt = np.array(keypoints2[i].pt)
+    relative_pos = data-mid_pt
+    dist = np.linalg.norm(relative_pos,axis=1)
+    thresh = (keypoints[i].size/2) - (px_mm*1.5)
+    logger.info(f'Threshold: {thresh}')
 
+
+    data_wall = thorax_loc[dist > thresh,:,i]
+    cap.set(cv2.CAP_PROP_POS_FRAMES,np.where(dist>thresh)[0][0])
+    x_wall = data_wall[:,0]
+    y_wall = data_wall[:,1]
+    subset = np.random.choice(np.arange(data_wall.shape[0]),1000,replace=False)
+    logger.info(f'FRAC ON EDGE: {np.where(dist > thresh)[0].shape[0]/dist.shape[0] * 100}%')
 # %%
 
+def drawArrow(A, B):
+    plt.arrow(A[0], A[1], B[0] - A[0], B[1] - A[1],
+              head_width=3, length_includes_head=True)
 
-from matplotlib.colors import LogNorm, Normalize
-subset = np.random.choice(np.arange(x.shape[0]),100000,replace=False)
-plt.imshow(frame, cmap='gray', vmin=0, vmax=255)
-# plt.hist2d(x[subset],y[subset], bins=24,norm=LogNorm(), cmap='plasma')
-hmax = sns.kdeplot(x[subset],y[subset],cmap = trx_utils.alpha_cmap(plt.cm.viridis),
-   shade = True,
-   shade_lowest = False,
-   antialiased=True,
-   n_levels = 20,
-   cbar=True)
-# 
-# #cbar=True,shade=True, cmap=alpha_cmap(plt.cm.plasma),levels=20,bw_adjust=.5,norm = LogNorm(),antialiased=True)
-# # hmax.collections[0].set_alpha(0)
-plt.xlim(0,1536/2)
-plt.ylim(1536/2,1536)
-plt.show()
-
-
-# %%
-
-from cv2 import cv2
-thorax_loc = fly_node_locations[0:(24*60*60*100),node_names.index("thorax"),:,:]
-cap = cv2.VideoCapture('/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv')
-keypoints, blobs, median_frame = trx_utils.blob_detector("/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv")
-arr_srt = np.array([kp.pt for kp in keypoints]).T[np.newaxis,np.newaxis,:,:]
-arr_srt[:,:,1,:] = -arr_srt[:,:,1,:]
-assignment_indices, locations, freq = trx_utils.hist_sort(arr_srt,ctr_idx=0,ymin=-1536, ymax=0)
-keypoints2 = [keypoints[i] for i in assignment_indices]
-i=0
-data = thorax_loc[:,:,1]
-x = data[:,0]
-y = data[:,1]
-plt.hist2d(x, y, norm=mpl.colors.LogNorm())
-plt.axis('equal')
-plt.title("Simple 2D Histogram")
-plt.show()
-# mid_pt = ((np.max(x) + np.min(x))/2, (np.max(y) + np.min(y))/2)
-mid_pt = np.array(keypoints2[i].pt)
-relative_pos = data-mid_pt
-dist = np.linalg.norm(relative_pos,axis=1)
-thresh = (keypoints[i].size/2) - (px_mm*1)
-logger.info(f'Threshold: {thresh}')
-
-
-data_wall = thorax_loc[dist > thresh,:,i]
-cap.set(cv2.CAP_PROP_POS_FRAMES,np.where(dist>thresh)[0][0])
-x_wall = data_wall[:,0]
-y_wall = data_wall[:,1]
-subset = np.random.choice(np.arange(data_wall.shape[0]),1000,replace=False)
-logger.info(f'FRAC ON EDGE: {np.where(dist > thresh)[0].shape[0]/dist.shape[0] * 100}%')
-# plt.imshow(frame, cmap='gray', vmin=0, vmax=255)
-# plt.hist2d(x[subset],y[subset], bins=24,norm=LogNorm(), cmap='plasma')
-# hmax = sns.kdeplot(x_wall[subset],y_wall[subset],cmap = trx_utils.alpha_cmap(plt.cm.viridis),
-#    shade = True,
-#    shade_lowest = False,
-#    antialiased=True,
-#    n_levels = 20,
-#    cbar=True)
-   
-# 
-# #cbar=True,shade=True, cmap=alpha_cmap(plt.cm.plasma),levels=20,bw_adjust=.5,norm = LogNorm(),antialiased=True)
-# # hmax.collections[0].set_alpha(0)
-# plt.xlim(0,1536/2)
-# plt.ylim(1536/2,1536)
-# plt.show()
-# %%
 n = 0
-step = 1000
-for i in np.argsort(dist[dist > thresh])[::step]:
-    cap.set(cv2.CAP_PROP_POS_FRAMES,i)
+step = 10
+dist_threshed = dist
+dist_threshed[dist_threshed > thresh] = np.nan
+cap=cv2.VideoCapture(video_path)
+for i in (dist_threshed).argsort()[:100:step]:
+    cap.set(cv2.CAP_PROP_POS_FRAMES,i-1)
     res, frame = cap.read()
     frame = frame[:, :, 0]
     print(n)
     print(i)
-    print(dist[i])
+    print(dist_threshed[i])
     n += step
+    fig, ax = plt.subplots()
     plt.imshow(frame, cmap='gray', vmin=0, vmax=255)
+    for keypoint in keypoints2:
+        ax.add_artist( plt.Circle(keypoint.pt, thresh, color='r', fill=False) )
+    drawArrow(keypoints2[0].pt,data[i,:])
+        # ax.add_artist( plt.Circle(keypoint.pt, dist[i], color='b', fill=False) )
+    
     plt.show()
 
+    
+
 # %%
-# import utils.trx_utils as trx_utils
-import importlib
-import utils.trx_utils as trx_utils
-import cv2
-importlib.reload(trx_utils)
-# %%
+
+
+fig, ax = plt.subplots()
+ax.imshow(frame, cmap='gray', vmin=0, vmax=255)
+for keypoint in keypoints2:
+    ax.add_artist( plt.Circle(keypoint.pt, thresh, color='r', fill=False) )
+plt.show()
+logger.info(keypoints)
 # %%

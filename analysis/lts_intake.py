@@ -35,7 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("analysis_logger")
 
-
+# %%
 px_mm = 28.25  # mm/px
 
 path_name = "/Genomics/ayroleslab2/scott/long-timescale-behavior/data/tracks"
@@ -64,19 +64,34 @@ expmt_dict = {
         "frame_rate": 100,
         "start_time": datetime.strptime("0-22:33:00", FMT),
         "camera": "1",
-        "experiment": "1"
+        "experiment": "1",
+        "video_path": "/Genomics/ayroleslab2/scott/long-timescale-behavior/data/exp1/exp5_202109014_2233/Camera1/exp.mkv"
     },
         "exp1_cam2": {
         "h5s": exp1_cam2_h5s,
         "frame_rate": 100,
         "start_time": datetime.strptime("0-22:33:00", FMT),
         "camera": "2",
-        "experiment": "1"
+        "experiment": "1",
+        "video_path": "test"
     }
 }
 
 tracks_dict = {}
 velocities_dict = {}
+
+for expmt_name in list(expmt_dict.keys())[0:1]:
+    video_path = expmt_dict[expmt_name]["video_path"]
+    keypoints, blobs, median_frame = trx_utils.blob_detector(video_path)
+    arr_srt = np.array([kp.pt for kp in keypoints]).T[np.newaxis,np.newaxis,:,:]
+    arr_srt[:,:,1,:] = -arr_srt[:,:,1,:]
+    assignment_indices, locations, freq = trx_utils.hist_sort(arr_srt,ctr_idx=0,ymin=-1536, ymax=0)
+    keypoints2 = [keypoints[i] for i in assignment_indices]
+    if len(keypoints2) !=4:
+        Exception("Wrong number of keypoints!")
+    expmt_dict[expmt_name]['keypoints'] = [kp.pt for kp in keypoints2]
+    expmt_dict[expmt_name]['keypoints_size'] = [kp.size for kp in keypoints2]
+
 # %%
 for key in list(expmt_dict.keys()):
     expmt = expmt_dict[key]
@@ -117,15 +132,12 @@ for key in list(expmt_dict.keys()):
     expmt_dict[key]["assignments"] = assignment_indices
     expmt_dict[key]["freq"] = freq
 
-HEAD_INDEX = node_names.index("head")
-THORAX_INDEX = node_names.index("thorax")
-ABDO_INDEX = node_names.index("abdomen")
 # %%
 for key in expmt_dict:
     expmt = expmt_dict[key]
     fly_node_locations_all = tracks_dict[key]
     fly_idx = 0
-    indices = np.array([THORAX_INDEX])
+    indices = np.array([node_names.index("thorax")])
     fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
     fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
     fly_node_velocities = trx_utils.instance_node_velocities(
@@ -144,10 +156,11 @@ for key in expmt_dict:
     velocities_dict[key] = fly_node_velocities
 
 # %%
-with open('data.json', 'w') as f:
-    json.dump(expmt_dict, f,default=str)
+for key in expmt_dict:
+    expmt_dict[key]["node_names"] = node_names
+    expmt_dict[key]["px_mm"] = px_mm
+json.dump(expmt_dict, open('expmt_dict.json', 'w'),default=str)
 
-# %%
 for key in tqdm(expmt_dict):
     data_file = h5py.File(data_dir + f"/{key}_fly_node_locations.h5", 'w')
     data_file.create_dataset('tracks', data=tracks_dict[key], compression='lzf')#'gzip', compression_opts=9)
@@ -156,4 +169,3 @@ for key in tqdm(expmt_dict):
     data_file = h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", 'w')
     data_file.create_dataset('velocities', data=velocities_dict[key], compression='lzf')#'gzip', compression_opts=9)
     data_file.close()
-

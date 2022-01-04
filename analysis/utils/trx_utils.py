@@ -461,3 +461,25 @@ def blob_detector(video_path):
     blobs = cv2.drawKeypoints(im_th, keypoints, blank, (0, 0, 255),
                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     return keypoints, blobs, median_frame
+
+import copyreg
+def _pickle_keypoints(point):
+    return cv2.KeyPoint, (*point.pt, point.size, point.angle,
+                          point.response, point.octave, point.class_id)
+
+copyreg.pickle(cv2.KeyPoint().__class__, _pickle_keypoints)
+import matplotlib.pyplot as plt
+def drawArrow(A, B):
+    plt.arrow(A[0], A[1], B[0] - A[0], B[1] - A[1],
+              head_width=3, length_includes_head=True)
+
+def change_width(ax, new_value) :
+    for patch in ax.patches :
+        current_width = patch.get_width()
+        diff = current_width - new_value
+
+        # we change the bar width
+        patch.set_width(new_value)
+
+        # we recenter the bar
+        patch.set_x(patch.get_x() + diff * .5)
