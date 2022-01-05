@@ -66,7 +66,10 @@ for expmt in expmt_dict:
     expmt_data = expmt_dict[expmt]
     FMT = '%w-%H:%M:%S'
     start_day = datetime.strptime('1900-01-02 00:00:00', '%Y-%m-%d %H:%M:%S') # for example
-    time = expmt_data['start_time']#,'%Y-%m-%d %H:%M:%S')
+    try:
+        time = datetime.strptime(expmt_data['start_time'],'%Y-%m-%d %H:%M:%S')
+    except:
+        time = expmt_data['start_time']
     expmt_data['start_time'] = time
     difference = start_day - time 
     frame_rate = expmt_data['frame_rate']
@@ -74,29 +77,41 @@ for expmt in expmt_dict:
     frame_idx = (np.arange(tracks_dict[expmt].shape[0]) - shift)
     expmt_tod = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
     ToD[expmt] = expmt_tod
+# %%
 
-
+# start_frame
 plt.rcParams['patch.linewidth'] = 0
 plt.rcParams['patch.edgecolor'] = 'none'
+plt.rcParams["figure.figsize"] = (9,3)
+plt.rcParams['figure.dpi'] = 300
 # fig, ax = plt.subplots(figsize=(9, 3), dpi=300)
 # data[data < 0.1] = 0
+# %%
+for expmt in expmt_dict:
+    vels = velocities_dict[expmt].copy()
+    vels[vels < 5] = 0
+    for fly_idx in range(vels.shape[2]):
+        logger.info(f"{expmt} {fly_idx}")
+        plt.plot(vels[:, node_names.index("forelegL"), fly_idx], label=f"{expmt} {fly_idx}")
+        plt.show()
 
 # %%
 for expmt in expmt_dict:
     # data[data < .1] = 0
-
-    vels = velocities_dict[expmt]
+    vels = velocities_dict[expmt].copy()
+    vels[vels < 1] = 0
     for fly_idx in range(vels.shape[2]):
-        vels[:,node_names.index("thorax"),:] = vels[:,node_names.index("thorax"),:] / np.nansum(vels[:,node_names.index("thorax"),:])
-    for fly_idx in range(vels.shape[2]):
-        segments = 2*24
-        binned = scipy.stats.binned_statistic(ToD[expmt], vels[:,node_names.index("thorax"),fly_idx],statistic='mean', bins=segments, range=None)
+        logger.info(f"{expmt} {fly_idx}")
+        segments = 1*24
+        fly_thorax_vel = vels[:,node_names.index("thorax"),fly_idx]
+        fly_thorax_vel[np.isnan(fly_thorax_vel)] = 0
+        binned = scipy.stats.binned_statistic(ToD[expmt], fly_thorax_vel,statistic='mean', bins=segments, range=None)
         custom_params = {"axes.spines.right": False, "axes.spines.top": False}
         sns.set_theme(style="ticks", rc=custom_params)
         fig, ax = plt.subplots()
         sns.barplot(ax=ax,x=np.arange(segments),y=binned.statistic,color=palettable.wesanderson.GrandBudapest4_5.mpl_colors[0])#,alpha=1,width=1)
         plt.xticks([i*(segments//24) for i in [0, 8, 20,24]], [0, 8, 20,24])
-        plt.tight_layout()
+        plt.tight_layout(pad=2)
         # ax.set_yscale('log')
         def change_width(ax, new_value) :
             for patch in ax.patches :
@@ -112,18 +127,21 @@ for expmt in expmt_dict:
         plt.ylabel("Mean thorax velocity (mm/s)")
         plt.title("Mean thorax velocity by hour of the day")
         change_width(ax, .95)
+        plt.savefig(f'{expmt}_fly{fly_idx}_thorax_velocity_by_hour_of_day.png')
         plt.show()
 # %%
 # flattened
+ToD_dict = {}
 for expmt in expmt_dict:
     logger.info(expmt)
-    vels = velocities_dict[expmt]
+    vels = velocities_dict[expmt].copy()
     ToD_mat = np.concatenate([np.repeat(ToD[expmt][:,np.newaxis],4,axis=1)], axis=1)
+    ToD_dict[expmt] = ToD_mat
     for fly_idx in range(vels.shape[2]):
-            vels[:,node_names.index("thorax"),:] = vels[:,node_names.index("thorax"),:] / np.nansum(vels[:,node_names.index("thorax"),:])
-
-    segments = 2*24
-    binned = scipy.stats.binned_statistic(ToD_mat.flatten(), vels[:,node_names.index("thorax"),:].flatten(),statistic='mean', bins=segments, range=None)
+            vels[:,node_names.index("thorax"),fly_idx] = vels[:,node_names.index("thorax"),fly_idx] / np.nansum(vels[:,node_names.index("thorax"),fly_idx])
+    logger.info(f'{fly_idx}; {np.max(vels)}')
+    segments = 1*24
+    binned = scipy.stats.binned_statistic(ToD_mat.flatten(), vels[:,fly_idx].flatten(),statistic='mean', bins=segments, range=None)
     custom_params = {"axes.spines.right": False, "axes.spines.top": False}
     sns.set_theme(style="ticks", rc=custom_params)
     fig, ax = plt.subplots()
@@ -147,6 +165,45 @@ for expmt in expmt_dict:
     change_width(ax, .95)
     plt.show()
 
+# %% 
+# FULL
+ToD_full = np.concatenate([ToD_dict[key] for key in expmt_dict], axis=1)
+thorax_vels = np.concatenate([velocities_dict[key][:,node_names.index("thorax"),:] for key in expmt_dict], axis=1).copy()
+for fly_idx in range(vels.shape[2]):
+        thorax_vels[:,fly_idx] = thorax_vels[:,fly_idx] / np.nansum(thorax_vels[:,fly_idx])
+
+sns.set_theme(style="ticks", rc=custom_params)
+fig, ax = plt.subplots()
+segments = 1*24
+binned = scipy.stats.binned_statistic(ToD_full.flatten(), thorax_vels.flatten(),statistic='mean', bins=segments, range=None)
+custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+sns.set_theme(style="ticks", rc=custom_params)
+fig, ax = plt.subplots()
+sns.barplot(ax=ax,x=np.arange(segments),y=binned.statistic,color=palettable.wesanderson.GrandBudapest4_5.mpl_colors[0])#,alpha=1,width=1)
+plt.xticks([i*(segments//24) for i in [0, 8, 20,24]], [0, 8, 20,24])
+plt.tight_layout(pad=2)
+# ax.set_yscale('log')
+def change_width(ax, new_value) :
+    for patch in ax.patches :
+        current_width = patch.get_width()
+        diff = current_width - new_value
+
+        # we change the bar width
+        patch.set_width(new_value)
+
+        # we recenter the bar
+        patch.set_x(patch.get_x() + diff * .5)
+plt.xlabel("Hour of the day")
+plt.ylabel("Mean thorax velocity (mm/s)")
+plt.title("Mean thorax velocity by hour of the day")
+# plt.yscale('log')
+change_width(ax, .95)
+plt.savefig(f'thorax_velocity_by_hour_of_day.png')
+plt.show()
+
+
+# %%
+
 # %%
 import scipy.stats
 from datetime import datetime
@@ -164,8 +221,7 @@ end_frame = int(24*60*60*frame_rate)
 data = fly_node_velocities[:,node_names.index("thorax"),0:2].copy()
 frame_idx = (np.arange(data.shape[0]) - shift)
 ToD = frame_idx % int(24*60*60*frame_rate) / (1*60*60*frame_rate)
-plt.rcParams["figure.figsize"] = (9,3)
-plt.rcParams['figure.dpi'] = 300
+
 # data[data < .1] = 0
 for fly_idx in range(data.shape[1]):
     data[:,fly_idx] = data[:,fly_idx] / np.nansum(data[:,fly_idx])
@@ -294,4 +350,25 @@ for keypoint in keypoints2:
     ax.add_artist( plt.Circle(keypoint.pt, thresh, color='r', fill=False) )
 plt.show()
 logger.info(keypoints)
+# %%
+
+
+# %%
+import matplotlib.pyplot as plt
+import trajectorytools
+
+dset = velocities_dict['exp1_cam1'][1:86400,node_names.index("thorax"),0].copy()
+# find_max_dict = {"prominence": (3 * dset.std(), None), "distance": 1}
+# find_min_dict = {
+#     "prominence": (1 * dset.std(), None),
+#     "distance": 3,
+# }
+
+
+res = trajectorytools.fish_bouts.find_bouts_individual(dset)
+plt.plot(dset)
+for i in range(res.shape[0]):
+    logger.infologger.info(f'{res[i,0]} + {res[i,0] + (res[i,1] - res[i,0])')
+    plt.axvspan(res[i,0],res[i,0] + (res[i,1] - res[i,0]), color='red', alpha=0.1)
+plt.show()
 # %%
