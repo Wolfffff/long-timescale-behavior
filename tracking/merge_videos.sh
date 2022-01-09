@@ -17,3 +17,6 @@ ffmpeg -f concat -safe 0 -i 0throughN -c copy 0throughN.mkv
 
 # Clean up the files we created
 python ../sleap/sleap/nn/tracking.py ${FILE}.slp --tracker simple --similarity iou --match greedy --track_window 3 --post_connect_single_breaks 1 --target_instance_count 4 --clean_instance_count 4 --output ${FILE}.tracked.slp
+
+#
+# for FILE in *through*.slp; do $(python ../../sleap/sleap/nn/tracking.py ${FILE} --tracker simple --similarity iou --match greedy --track_window 5 --post_connect_single_breaks 1 --target_instance_count 4 --clean_instance_count 4 --output ${FILE%.*}.tracked.slp) & ; done

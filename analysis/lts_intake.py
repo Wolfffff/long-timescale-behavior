@@ -42,18 +42,18 @@ path_name = "/Genomics/ayroleslab2/scott/long-timescale-behavior/data/tracks"
 exp1_cam1_h5s = [
     "exp2_cam1_0through23.tracked.analysis.h5",
     "exp2_cam1_24through47.tracked.analysis.h5",
-    "exp2_cam1_48through71.tracked.analysis.h5",
-    "exp2_cam1_72through95.tracked.analysis.h5",
-    "exp2_cam1_96through119.tracked.analysis.h5"
+    # "exp2_cam1_48through71.tracked.analysis.h5",
+    # "exp2_cam1_72through95.tracked.analysis.h5",
+    # "exp2_cam1_96through119.tracked.analysis.h5"
 ]
 exp1_cam1_h5s = [path_name + "/" + filename for filename in exp1_cam1_h5s]
 
 exp1_cam2_h5s = [
     "exp2_cam2_0through23.tracked.analysis.h5",
     "exp2_cam2_24through47.tracked.analysis.h5",
-    "exp2_cam2_48through71.tracked.analysis.h5",
-    "exp2_cam2_72through95.tracked.analysis.h5",
-    "exp2_cam2_96through119.tracked.analysis.h5"
+    # "exp2_cam2_48through71.tracked.analysis.h5",
+    # "exp2_cam2_72through95.tracked.analysis.h5",
+    # "exp2_cam2_96through119.tracked.analysis.h5"
 ]
 exp1_cam2_h5s = [path_name + "/" + filename for filename in exp1_cam2_h5s]
 
@@ -116,8 +116,8 @@ for key in list(expmt_dict.keys()):
                 temp_locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
             )
             temp_locations[:, :, 1, :] = -temp_locations[:, :, 1, :]
-            print(filename)
-            print(freq)
+            logger.info(filename)
+            logger.info(freq)
 
             locations = np.concatenate((locations, temp_locations), axis=0)
     # Final assignment as a safety
@@ -139,20 +139,20 @@ for key in expmt_dict:
     indices = np.array([node_names.index("thorax")])
     fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
     fly_node_locations = trx_utils.fill_missing_np(fly_node_locations)
-    fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
-    fly_node_locations = trx_utils.smooth_gaussian(fly_node_locations, window=10)
+    # fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
+    # fly_node_locations = trx_utils.smooth_gaussian(fly_node_locations, window=5)
     fly_node_velocities = trx_utils.instance_node_velocities(
         fly_node_locations, 0, fly_node_locations.shape[0]
-    ).astype(np.float32) * (1/px_mm) * expmt["frame_rate"]
+    ) * (1/px_mm) * expmt["frame_rate"]
 
     for fly_idx in tqdm(range(1, fly_node_locations_all.shape[3])):
         current_fly_node_locations = fly_node_locations_all[:, :, :, [fly_idx]]
         current_fly_node_locations = trx_utils.fill_missing_np(current_fly_node_locations)
-        current_fly_node_locations = trx_utils.smooth_median(current_fly_node_locations, window=5)
-        current_fly_node_locations = trx_utils.smooth_gaussian(current_fly_node_locations, window=10)
+        # current_fly_node_locations = trx_utils.smooth_median(current_fly_node_locations, window=5)
+        # current_fly_node_locations = trx_utils.smooth_gaussian(current_fly_node_locations, window=5)
         current_fly_node_velocities = trx_utils.instance_node_velocities(
             current_fly_node_locations, 0, current_fly_node_locations.shape[0]
-        ).astype(np.float32) * (1/px_mm) * expmt["frame_rate"]
+        ) * (1/px_mm) * expmt["frame_rate"]
         fly_node_velocities = np.dstack((fly_node_velocities, current_fly_node_velocities))
         fly_node_locations = np.concatenate((fly_node_locations, current_fly_node_locations), axis=3)
 
@@ -172,3 +172,5 @@ for key in tqdm(expmt_dict):
     data_file = h5py.File(data_dir + f"/{key}_fly_node_velocities.h5", 'w')
     data_file.create_dataset('velocities', data=velocities_dict[key], compression='lzf')#'gzip', compression_opts=9)
     data_file.close()
+
+# %%

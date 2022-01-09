@@ -1,7 +1,3 @@
-# Quickly merge slp files at the h5 level -- this is a quick hack to avoid using SLEAP's smart merging.
-# The only trick here is to manually set the video reference.
-
-
 import glob
 import re
 from time import time
@@ -14,8 +10,12 @@ import cv2
 import os.path
 
 parser = argparse.ArgumentParser(description="generate frame slices")
+
+
 parser.add_argument("target", type=str, help="target", nargs="+")
+
 args = parser.parse_args()
+print(args.target[0] + ".slp")
 
 
 class RateColumn(rich.progress.ProgressColumn):
@@ -29,7 +29,8 @@ class RateColumn(rich.progress.ProgressColumn):
         return rich.progress.Text(f"{speed:.2f} it/s", style="progress.data.speed")
 
 
-filenames = glob.glob(args.target + "*.slp")
+print(args.target)
+filenames = glob.glob(args.target[0] + "*.slp")
 filenames.sort(key=lambda f: int(re.sub("\D", "", f)))
 print(filenames)
 
@@ -54,21 +55,20 @@ with rich.progress.Progress(
         elapsed_since_last_report = time() - last_report
         if elapsed_since_last_report > report_period:
             progress.refresh()
-        new_labels = sleap.Labels.load_file(filename)
-        base_labels.labeled_frames.extend(new_labels.labeled_frames)
-        base_labels.merge_matching_frames()
-        base_labels._update_from_labels(merge=True)
+        # This is the "fix"
+        new_labels = sleap.Labels.load_file(filename,match_to=base_labels)
+        base_labels.extend_from(new_labels)
 
 
 # base_labels = sleap.Labels.complex_merge_between(base_labels, new_labels.labeled_frames)
-sleap.Labels.save_file(base_labels, args.target + ".slp")
+sleap.Labels.save_file(base_labels, args.target[0] + ".slp")
 
-import h5py
+#import h5py
 
-f = h5py.File(args.target + "slp", "r+")
-print(len(f["frames"]["video"][:]))
-print(f["frames"]["video"][:])
-f["frames"]["video"] = 0
-print(len(f["frames"]["video"][:]))
-print(f["frames"]["video"][:])
-f.close()
+#f = h5py.File(args.target[0] + ".slp", "r+")
+#print(len(f["frames"]["video"][:]))
+#print(f["frames"]["video"][:])
+#f["frames"]["video"] = 0
+#print(len(f["frames"]["video"][:]))
+#print(f["frames"]["video"][:])
+#f.close()

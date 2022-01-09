@@ -286,7 +286,7 @@ def smooth_diff(node_loc, win=25, poly=3):
     node_loc_vel = np.zeros_like(node_loc)
     
     for c in range(node_loc.shape[-1]):
-        node_loc_vel[:, c] = savgol_filter(node_loc[:, c], win, poly, deriv=1)
+        node_loc_vel[:, c] = np.gradient(node_loc[:, c])#savgol_filter(node_loc[:, c], win, poly, deriv=1)
     
     node_vel = np.linalg.norm(node_loc_vel,axis=1)
 
