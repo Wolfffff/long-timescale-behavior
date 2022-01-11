@@ -4,6 +4,7 @@ import scipy.ndimage
 from tqdm import tqdm
 from scipy.signal import savgol_filter
 import matplotlib.colors as colors
+import h5py
 
 
 def fill_gaps(x, max_len):
@@ -483,3 +484,57 @@ def change_width(ax, new_value) :
 
         # we recenter the bar
         patch.set_x(patch.get_x() + diff * .5)
+
+def describe_hdf5(filename, attrs=True):
+    def desc(k, v):
+        if type(v) == h5py.Dataset:
+            print(f"[dataset]  {v.name}: {v.shape} | dtype = {v.dtype}")
+            if attrs and len(v.attrs) > 0:
+                print(f"      attrs = {dict(v.attrs.items())}")
+        elif type(v) == h5py.Group:
+            print(f"[group] {v.name}:")
+            if attrs and len(v.attrs) > 0:
+                print(f"      attrs = {dict(v.attrs.items())}")
+
+    with h5py.File(filename, "r") as f:
+        f.visititems(desc)
+
+import palettable
+import skvideo
+skvideo.setFFmpegPath('/Genomics/argo/users/swwolf/.conda/envs/sleap_dev/bin')
+import skvideo.io
+def plot_trx(tracks, video_path, frame_start=0,frame_end=100,trail_length=10,output_path="output.mp4"):
+    ffmpeg_writer = skvideo.io.FFmpegWriter(f'{output_path}_fly_node_locations.mp4', outputdict={'-vcodec': 'libx264'})
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES,frame_start-1)
+    data = tracks[frame_start:frame_end,:,:,:]
+    for frame_idx in range(data.shape[0]):
+        fig, ax = plt.subplots()
+        print(f"Frame {frame_idx}")
+        data_subset = data[max((frame_idx - trail_length),0):frame_idx,:,:,:]
+        for fly_idx in range(data_subset.shape[3]):
+                for node_idx in range(data_subset.shape[1]):
+                    for idx in range(2,data_subset.shape[0]): 
+                        # Note that you need to use single steps or the data has "steps"
+                        plt.plot(data_subset[(idx-2):idx,node_idx,0,fly_idx],data_subset[(idx-2):idx,node_idx,1,fly_idx], linewidth = 1*idx/data_subset.shape[0],color=palettable.tableau.Tableau_20.mpl_colors[node_idx]);
+
+        if cap.isOpened():
+            res, frame = cap.read()
+            frame = frame[:,:,0]
+            plt.imshow(frame,cmap='gray');
+        ax = plt.Axes(fig, [0., 0., 1., 1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+        fig.set_size_inches(5, 5, True);
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.axis('off')
+        fig.patch.set_visible(False)
+        fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
+        fig.canvas.draw();
+        image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        ffmpeg_writer.writeFrame(image_from_plot)
+        plt.close()
+    ffmpeg_writer.close()
+    # return fig

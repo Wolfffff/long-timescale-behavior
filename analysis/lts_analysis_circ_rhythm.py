@@ -51,7 +51,7 @@ for key in tqdm(expmt_dict):
         
 # %%
 import scipy.stats
-from datetime import datetime, timedelta
+from datetime import datetime
 ToD = {}
 for expmt in expmt_dict:
     expmt_data = expmt_dict[expmt]
@@ -97,7 +97,7 @@ for expmt in expmt_dict:
         plt.title(f'{expmt} - Fly {fly_idx} - Mean thorax velocity by day/night')
         plt.show()
         logger.info(f"{expmt} {fly_idx}")
-        segments = 1*24
+        segments = 2*24
 
         binned = scipy.stats.binned_statistic(ToD[expmt], fly_thorax_vel,statistic='mean', bins=segments, range=None)
         custom_params = {"axes.spines.right": False, "axes.spines.top": False}
@@ -125,7 +125,7 @@ for expmt in expmt_dict:
         plt.show()
 
 # %%
-# 
+
 day_start = 8
 day_end = 20
 day_map = {0: "Night", 1: "Day"}
@@ -157,23 +157,28 @@ for expmt in expmt_dict:
     # sns.boxplot(x='x', y='y', data=df,showfliers=True)
     plt.title(f'{expmt} - Moving/not moving by day/night')
     # plt.xlim(0,10)
+    plt.savefig(f'{expmt}_thorax_velocity_by_timeofday.png')
+    
     plt.show()
+
+
+
 # %%
-import cv2
-expmt = 'exp1_cam1'
-expmt_data = expmt_dict[expmt]
-cap=cv2.VideoCapture(expmt_data['video_path'])
-fast_idx = np.where(velocities_dict[expmt][:,node_names.index("thorax"),0] > 20*(1/28.25)*100)[0]
-for idx in fast_idx:
-    cap.set(cv2.CAP_PROP_POS_FRAMES,idx-4)
-    logger.info(f'{idx}')
-    logger.info(f'{velocities_dict[expmt][idx,node_names.index("thorax"),0]}')
-    for i in range(3):
-        res, frame = cap.read()
-        frame = frame[:, :, 0]
-        fig, ax = plt.subplots()
-        a = plt.imshow(frame, cmap='gray', vmin=0, vmax=255);
-        b = plt.scatter(x=tracks_dict[expmt][int(cap.get(cv2.CAP_PROP_POS_FRAMES)),node_names.index("thorax"),0,0],y=tracks_dict[expmt][int(cap.get(cv2.CAP_PROP_POS_FRAMES)),node_names.index("thorax"),1,0],s=10,c='r');
-        plt.savefig(f'ugh_{expmt}_frame{cap.get(cv2.CAP_PROP_POS_FRAMES)}_thorax_velocity.png')
+# import cv2
+# expmt = 'exp1_cam1'
+# expmt_data = expmt_dict[expmt]
+# cap=cv2.VideoCapture(expmt_data['video_path'])
+# fast_idx = np.where(velocities_dict[expmt][:,node_names.index("thorax"),0] > 20*(1/28.25)*100)[0]
+# for idx in fast_idx:
+#     cap.set(cv2.CAP_PROP_POS_FRAMES,idx-4)
+#     logger.info(f'{idx}')
+#     logger.info(f'{velocities_dict[expmt][idx,node_names.index("thorax"),0]}')
+#     for i in range(3):
+#         res, frame = cap.read()
+#         frame = frame[:, :, 0]
+#         fig, ax = plt.subplots()
+#         a = plt.imshow(frame, cmap='gray', vmin=0, vmax=255);
+#         b = plt.scatter(x=tracks_dict[expmt][int(cap.get(cv2.CAP_PROP_POS_FRAMES)),node_names.index("thorax"),0,0],y=tracks_dict[expmt][int(cap.get(cv2.CAP_PROP_POS_FRAMES)),node_names.index("thorax"),1,0],s=10,c='r');
+#         plt.savefig(f'ugh_{expmt}_frame{cap.get(cv2.CAP_PROP_POS_FRAMES)}_thorax_velocity.png')
 
 # %%
