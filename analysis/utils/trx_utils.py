@@ -538,3 +538,115 @@ def plot_trx(tracks, video_path, frame_start=0,frame_end=100,trail_length=10,out
         plt.close()
     ffmpeg_writer.close()
     # return fig
+
+import numpy as np
+import cv2
+
+def rotate_image(image, angle):
+  image_center = tuple(np.array(image.shape[1::-1]) / 2)
+  rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+  result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
+  
+  return result
+from matplotlib.collections import LineCollection
+def plot_ego(tracks, video_path,angles=None,fly_ids=[1],ctr_idx=3,frame_start=0,frame_end=100,trail_length=50,output_path="output.mp4"):
+    if isinstance(fly_ids,int):
+        fly_idx=[fly_ids]
+    ffmpeg_writer = skvideo.io.FFmpegWriter(f'{output_path}', outputdict={'-vcodec': 'libx264'})
+    cap = cv2.VideoCapture(video_path)
+    cap.set(cv2.CAP_PROP_POS_FRAMES,frame_start-1)
+    dpi=300
+    if tracks.ndim == 3:
+        tracks = tracks[:,:,:,np.newaxis]
+    data = tracks[frame_start:frame_end,:,:,:]
+    print(data.shape)
+    for frame_idx in range(data.shape[0]):
+        if cap.isOpened():
+            res, frame = cap.read()
+            # frame = frame[:,:,0]
+
+            height, width, nbands = 96*5, 96*5, 3
+            # What size does the figure need to be in inches to fit the image?
+            figsize = width / float(dpi), height / float(dpi)
+            # Create a figure of the right size with one axes that takes up the full figure
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_axes([0, 0, 1, 1])
+            # Hide spines, ticks, etc.
+            ax.axis('off')
+            ax.imshow(frame,cmap='gray')
+        else:
+            fig, ax = plt.subplots()
+        print(f"Frame {frame_idx}")
+        data_subset = data[max((frame_idx - trail_length),0):frame_idx,:,:,:]
+        if data_subset.ndim == 4:
+            for fly_idx in fly_ids:
+                 for node_idx in range(data_subset.shape[1]):
+                    x=data_subset[:,node_idx,0,fly_idx]
+                    y=data_subset[:,node_idx,1,fly_idx]
+                    lwidths=np.arange(data_subset.shape[0])
+                    points = np.array([x, y]).T.reshape(-1, 1, 2)
+                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                    alphas = np.linspace(0.1, 1, data_subset.shape[0])
+                    rgba_colors = np.zeros((data_subset.shape[0], 4))
+                    # for red the first column needs to be one
+                    for i in range(len(x)):
+                        rgba_colors[i,0] = palettable.tableau.Tableau_20.mpl_colors[node_idx][0]
+                        rgba_colors[i,1] = palettable.tableau.Tableau_20.mpl_colors[node_idx][1]
+                        rgba_colors[i,2] = palettable.tableau.Tableau_20.mpl_colors[node_idx][2]
+                        rgba_colors[i,3] = alphas[i]
+                    # print(rgba_colors)
+                    lc = LineCollection(segments, linewidths=lwidths/data_subset.shape[0],colors=rgba_colors)#=palettable.tableau.Tableau_20.mpl_colors[node_idx])
+                    ax.add_collection(lc)
+
+
+        # ax = plt.Axes(fig, [0., 0., 1., 1.])
+        # ax.set_axis_off()
+        # fig.add_axes(ax)
+        # fig.set_size_inches(5, 5, True);
+        # ax.get_xaxis().set_visible(False)
+        # ax.get_yaxis().set_visible(False)
+        # ax.axis('off')
+        # fig.patch.set_visible(False)
+        # fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
+        ax.set(xlim=[-0.5, width - 0.5], ylim=[height - 0.5, -0.5], aspect=1)
+        xy = data[frame_idx,ctr_idx,0:2,fly_idx]
+        x = xy[0]
+        y = xy[1]
+        ax.set_xlim((x-96),(x+96))
+        ax.set_ylim((y-96),(y+96))
+
+        image_from_plot = get_img_from_fig(fig,dpi)
+        # image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        if angles is not None:
+            #print(angles)
+            image_from_plot = rotate_image(image_from_plot,-angles[frame_idx + frame_start]*180/np.pi)
+            image_from_plot = image_from_plot[64:-64,64:-64,:]
+        ffmpeg_writer.writeFrame(image_from_plot)
+        plt.close()
+        # fig.close()
+    ffmpeg_writer.close()
+
+import io 
+def get_img_from_fig(fig, dpi=300):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi)
+    buf.seek(0)
+    img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    buf.close()
+    img = cv2.imdecode(img_arr, 1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
+
+def ortho_bounding_box(point_list):
+    x_min = min(point[0] for point in point_list)
+    x_max = max(point[0] for point in point_list)
+    y_min = min(point[1] for point in point_list)
+    y_max = max(point[1] for point in point_list)
+    return x_min,x_max,y_min,y_max
+
+def rotate(p, origin=(0, 0), angle=0):
+    R = np.array([[np.cos(angle), -np.sin(angle)],
+                  [np.sin(angle),  np.cos(angle)]])
+    o = np.atleast_2d(origin)
+    p = np.atleast_2d(p)
+    return np.squeeze((R @ (p.T-o.T) + o.T).T)

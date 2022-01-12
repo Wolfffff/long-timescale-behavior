@@ -122,7 +122,7 @@ for key in expmt_dict:
     logger.info(f"Final frequencies: {freq}")
     logger.info(f"Final assignments: {assignment_indices}")
 
-    tracks_dict[expmt_name] = locations[0:1000,:,:,:]
+    tracks_dict[expmt_name] = locations#[0:1000,:,:,:]
     expmt_dict[expmt_name]["assignments"] = assignment_indices
     expmt_dict[expmt_name]["freq"] = freq
 
@@ -130,15 +130,15 @@ for key in expmt_dict:
 for key in expmt_dict:
     expmt = expmt_dict[key]
     fly_node_locations = tracks_dict[key]
-    fly_node_locations_filled = trx_utils.fill_missing_np(fly_node_locations)
+    fly_node_locations = trx_utils.fill_missing_np(fly_node_locations)
 
-    # fly_node_locations_smoothed = trx_utils.smooth_median(fly_node_locations, window=5)
-    # fly_node_locations_smoothed = trx_utils.smooth_gaussian(fly_node_locations, window=5)
+    fly_node_locations = trx_utils.smooth_median(fly_node_locations, window=5)
+    fly_node_locations = trx_utils.smooth_gaussian(fly_node_locations, window=5)
     
     fly_node_velocities = trx_utils.instance_node_velocities(
-            fly_node_locations_filled, 0, fly_node_locations_filled.shape[0]
+            fly_node_locations, 0, fly_node_locations.shape[0]
         ) * (1/px_mm) * expmt["frame_rate"]
-    tracks_dict[key] = fly_node_locations_filled
+    tracks_dict[key] = fly_node_locations#_filled
     velocities_dict[key] = fly_node_velocities
 
 # %% [markdown]
@@ -160,15 +160,21 @@ for key in expmt_dict:
 
 # %%
 importlib.reload(trx_utils)
-frame_start = 200
-frame_end = 210
+frame_start = int(27140*100)
+frame_end = int(27140*100 + 600*100)
 expmt_name = 'exp1_cam1'
 trx_utils.plot_trx(tracks_dict[expmt_name],expmt_dict[expmt_name]["video_path"],frame_start,frame_end,output_path="working_plot")
 # %%
+frame_start = int(27145*100)
+frame_end = int(27145*100 + 600*100)
 importlib.reload(trx_utils)
-egocentric_node_locations, egocentric_angles = trx_utils.normalize_to_egocentric(tracks_dict["exp1_cam1"][:,:,:,0], ctr_ind=node_names.index("thorax"),fwd_ind=node_names.index("head"),return_angles=True)
-trx_utils.plot_ego(egocentric_node_locations,expmt_dict["exp1_cam1"]["video_path"],egocentric_angles,[0],frame_start,frame_end,output_path="working_plot")
-# egocentric_velocities = trx_utils.instance_node_velocities(
-#         egocentric_node_locations, 0, egocentric_node_locations.shape[0]
-#     ) * (1/px_mm) * expmt["frame_rate"]
+fly_id = 0
+for fly_id in range(4):
+    expmt_name = 'exp1_cam1'
+    egocentric_node_locations, egocentric_angles = trx_utils.normalize_to_egocentric(tracks_dict["exp1_cam1"][:,:,:,fly_id], ctr_ind=node_names.index("abdomen"),fwd_ind=node_names.index("head"),return_angles=True)
+    # egocentric_angles=None
+    trx_utils.plot_ego(tracks_dict[expmt_name],expmt_dict["exp1_cam1"]["video_path"],egocentric_angles,[fly_id],node_names.index("thorax"),frame_start,frame_end,output_path=f'{expmt_name}_raw_ego_{fly_id}.mp4')
+    # egocentric_velocities = trx_utils.instance_node_velocities(
+    #         egocentric_node_locations, 0, egocentric_node_locations.shape[0]
+    #     ) * (1/px_mm) * expmt["frame_rate"]
 # %%
