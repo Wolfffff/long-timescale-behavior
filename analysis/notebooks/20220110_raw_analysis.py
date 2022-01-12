@@ -160,14 +160,15 @@ for key in expmt_dict:
 
 # %%
 importlib.reload(trx_utils)
-frame_start = 20
-frame_end = 25
+frame_start = 200
+frame_end = 210
 expmt_name = 'exp1_cam1'
 trx_utils.plot_trx(tracks_dict[expmt_name],expmt_dict[expmt_name]["video_path"],frame_start,frame_end,output_path="working_plot")
 # %%
-
-egocentric_node_locations = trx_utils.normalize_to_egocentric(tracks_dict["exp1_cam1"], ctr_ind=node_names.index("thorax"),fwd_ind=node_names.index("head"))
-egocentric_velocities = trx_utils.instance_node_velocities(
-        egocentric_node_locations, 0, egocentric_node_locations.shape[0]
-    ) * (1/px_mm) * expmt["frame_rate"]
+importlib.reload(trx_utils)
+egocentric_node_locations, egocentric_angles = trx_utils.normalize_to_egocentric(tracks_dict["exp1_cam1"][:,:,:,0], ctr_ind=node_names.index("thorax"),fwd_ind=node_names.index("head"),return_angles=True)
+trx_utils.plot_ego(egocentric_node_locations,expmt_dict["exp1_cam1"]["video_path"],egocentric_angles,[0],frame_start,frame_end,output_path="working_plot")
+# egocentric_velocities = trx_utils.instance_node_velocities(
+#         egocentric_node_locations, 0, egocentric_node_locations.shape[0]
+#     ) * (1/px_mm) * expmt["frame_rate"]
 # %%
