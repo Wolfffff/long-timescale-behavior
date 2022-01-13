@@ -262,8 +262,8 @@ def normalize_to_egocentric(x, rel_to=None, scale_factor=1, ctr_ind=1, fwd_ind=0
 def instance_node_velocities(fly_node_locations,start_frame,end_frame):
     frame_count = len(range(start_frame, end_frame))
     if len(fly_node_locations.shape) == 4:
+        fly_node_velocities = np.zeros((frame_count,fly_node_locations.shape[1],fly_node_locations.shape[3]))
         for fly_idx in range(fly_node_locations.shape[3]):
-            fly_node_velocities = np.zeros((frame_count,fly_node_locations.shape[1],fly_node_locations.shape[3] ))
             for n in tqdm(range(0, fly_node_locations.shape[1])):
                 fly_node_velocities[:, n,fly_idx] = smooth_diff(fly_node_locations[start_frame:end_frame, n, :,fly_idx])
     else:
@@ -508,8 +508,9 @@ def plot_trx(tracks, video_path, frame_start=0,frame_end=100,trail_length=10,out
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES,frame_start-1)
     data = tracks[frame_start:frame_end,:,:,:]
+    dpi=300
     for frame_idx in range(data.shape[0]):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(1536/300,1536/300),dpi=dpi)
         print(f"Frame {frame_idx}")
         data_subset = data[max((frame_idx - trail_length),0):frame_idx,:,:,:]
         for fly_idx in range(data_subset.shape[3]):
@@ -650,3 +651,71 @@ def rotate(p, origin=(0, 0), angle=0):
     o = np.atleast_2d(origin)
     p = np.atleast_2d(p)
     return np.squeeze((R @ (p.T-o.T) + o.T).T)
+import matplotlib as mpl
+import seaborn as sns
+from matplotlib.ticker import MaxNLocator
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+def plot_timeseries(tracks,fly_idx,vels,node_idx,frame_start=0,frame_end=100, title='',output_name='',path=''):
+    if isinstance(node_idx,int):
+        node_idx = [node_idx]
+    if isinstance(fly_idx,int):
+        fly_idx = [fly_idx]
+    dpi=300
+    data=tracks[frame_start:frame_end,node_idx,:,:]
+    sns.set('notebook', 'ticks', font_scale=1.2)
+    plt.rcParams['figure.figsize'] = [16,4]
+    for fly_idx in fly_idx:
+        if vels is not None:
+            fig, ax = plt.subplots(3,sharex=True)#(figsize=(1536/300,1536/300),dpi=dpi)
+            fig.tight_layout()
+            x=data[:,:,0,fly_idx]
+            y = data[:,:,1,fly_idx]
+            ax[0].plot(np.arange(frame_start,frame_end),x,label='x',color=palettable.wesanderson.Cavalcanti_5.mpl_colors[0])
+            ax[1].plot(np.arange(frame_start,frame_end),y,label='y',color=palettable.wesanderson.Cavalcanti_5.mpl_colors[1])
+            ax[0].set_title(f'{title} fly {fly_idx} position by time')
+            ax[0].margins(x=0)
+            ax[1].margins(x=0)
+            vel_img = vels[frame_start:frame_end,node_idx[0],fly_idx][:,np.newaxis].T
+            im = ax[2].imshow(vel_img, vmin=np.min(vels), vmax=np.max(vel_img),extent=[frame_start,frame_end,300,0])#,cmap='jet')
+            # fig.mar
+            # Be sure to only pick integer tick locations.
+            for axis in ax[0:2]:
+                    axis.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+                    axis.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            fig.text(-.02,0.66, 'Position (pixels)', ha="center", va="center", rotation=90)
+            fig.text(0.51,0, 'Time (frames)', ha="center", va="center")
+            fig.text(-.02,0.45/2, 'Rel vel', ha="center", va="center", rotation=90)
+
+            ax[2].set_title(f'{title} fly {fly_idx} velocity by time')
+            divider = make_axes_locatable(ax[2])
+            # cax = divider.append_axes('right', size='5%', pad=0.05)
+            # fig.colorbar(im, cax=cax, orientation='vertical')
+            fig.savefig(f'{path}{output_name}_fly_{fly_idx}_{frame_start}to{frame_end}.png',dpi=dpi)
+            plt.show()
+
+        else:
+            fig, ax = plt.subplots(2,sharex=True)#(figsize=(1536/300,1536/300),dpi=dpi)
+            fig.tight_layout()
+            x=data[:,:,0,fly_idx]
+            y = data[:,:,1,fly_idx]
+            ax[0].plot(np.arange(frame_start,frame_end),x,label='x',color=palettable.wesanderson.Cavalcanti_5.mpl_colors[0])
+            ax[1].plot(np.arange(frame_start,frame_end),y,label='y',color=palettable.wesanderson.Cavalcanti_5.mpl_colors[1])
+            ax[0].set_title(f'{title} fly {fly_idx} - thorax position by time')
+            ax[0].margins(x=0)
+            ax[1].margins(x=0)
+            ax[1].set_xlabel('Time (frames)')
+            ax[0].set_ylabel('x position (px)')
+            ax[1].set_ylabel('y position (px)')
+            # Be sure to only pick integer tick locations.
+            for axis in ax:
+                    axis.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+                    axis.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            fig.savefig(f'{path}{output_name}_fly_{fly_idx}_{frame_start}to{frame_end}.png',dpi=dpi)
+            plt.show()
+        # plt.legend()
+
+                
+                

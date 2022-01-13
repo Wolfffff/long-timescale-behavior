@@ -4,7 +4,8 @@
 *.slp
 *.zip
 *.h5
-*.mp4
+# *.mp4
 *.mkv
 data/
 training/
+sleap/
