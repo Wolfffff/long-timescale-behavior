@@ -161,6 +161,32 @@ for expmt in expmt_dict:
     
     plt.show()
 
+    binned = scipy.stats.binned_statistic(ToD[expmt], fly_thorax_vel,statistic='mean', bins=segments, range=None)
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+    sns.set_theme(style="ticks", rc=custom_params)
+    
+    fig, ax = plt.subplots()
+    sns.barplot(ax=ax,x=np.arange(segments),y=binned.statistic,color=palettable.wesanderson.GrandBudapest4_5.mpl_colors[0])#,alpha=1,width=1)
+    plt.xticks([i*(segments//24) for i in [0, 8, 20,24]], [0, 8, 20,24])
+    plt.tight_layout(pad=2)
+    # ax.set_yscale('log')
+    def change_width(ax, new_value):
+        for patch in ax.patches:
+            current_width = patch.get_width()
+            diff = current_width - new_value
+
+            # we change the bar width
+            patch.set_width(new_value)
+
+            # we recenter the bar
+            patch.set_x(patch.get_x() + diff * .5)
+    plt.xlabel("Hour of the day")
+    plt.ylabel("Mean thorax velocity (mm/s)")
+    plt.title("Mean thorax velocity by hour of the day")
+    change_width(ax, .95)
+    plt.savefig(f'{expmt}_fly{fly_idx}_thorax_velocity_by_hour_of_day.png')
+    plt.show()
+
 
 
 # %%
