@@ -5,6 +5,16 @@ from tqdm import tqdm
 from scipy.signal import savgol_filter
 import matplotlib.colors as colors
 import h5py
+import logging
+
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s: %(message)s",
+    level=logging.INFO,
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger("trx_utils_logger")
+
 
 
 def fill_gaps(x, max_len):
@@ -718,4 +728,56 @@ def plot_timeseries(tracks,fly_idx,vels,node_idx,frame_start=0,frame_end=100, ti
         # plt.legend()
 
                 
-                
+def load_tracks(expmt_dict):
+    tracks_dict_raw = {}
+    for key in expmt_dict:
+        expmt_name = str(key)
+        logger.info(f"Loading {expmt_name}")
+        expmt = expmt_dict[key]
+
+        with h5py.File(expmt["h5s"][0], "r") as f:
+            logger.info(expmt["h5s"][0])
+            dset_names = list(f.keys())
+            # Note the assignment of node_names here!
+            node_names = [n.decode() for n in f["node_names"][:]]
+            expmt_dict[key]["node_names"] = node_names
+            locations = f["tracks"][:].T
+
+            locations[:, :, 1, :] = -locations[:, :, 1, :]
+            assignment_indices, locations, freq = hist_sort(
+                locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
+            )
+            locations[:, :, 1, :] = -locations[:, :, 1, :]
+
+        if len(expmt["h5s"]) > 1:
+            for filename in tqdm(expmt["h5s"][1:]):
+                with h5py.File(filename, "r") as f:
+                    temp_locations = f["tracks"][:].T
+                    temp_locations[:, :, 1, :] = -temp_locations[:, :, 1, :]
+                    temp_assignment_indices, temp_locations, freq = hist_sort(
+                        temp_locations,
+                        ctr_idx=node_names.index("thorax"),
+                        ymin=-1536,
+                        ymax=0,
+                    )
+                    temp_locations[:, :, 1, :] = -temp_locations[:, :, 1, :]
+
+                    # logger.info(filename)
+                    # logger.info(freq)
+
+                    locations = np.concatenate((locations, temp_locations), axis=0)
+
+        # Final assignment
+        locations[:, :, 1, :] = -locations[:, :, 1, :]
+        assignment_indices, locations, freq = hist_sort(
+            locations, ctr_idx=node_names.index("thorax"), ymin=-1536, ymax=0
+        )
+        locations[:, :, 1, :] = -locations[:, :, 1, :]
+        logger.info(f"Experiment: {str(expmt)}")
+        logger.info(f"Final frequencies: {freq}")
+        logger.info(f"Final assignments: {assignment_indices}")
+
+        tracks_dict_raw[expmt_name] = locations  # [0:1000,:,:,:]
+        expmt_dict[expmt_name]["assignments"] = assignment_indices
+        expmt_dict[expmt_name]["freq"] = freq
+    return expmt_dict, tracks_dict_raw
